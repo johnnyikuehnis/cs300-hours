@@ -117,6 +117,38 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .toast.show{opacity:1}
 .publish{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:12px 16px;margin-bottom:24px}
 #pubHelp{flex-basis:100%}
+.headright{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+@media (max-width:600px){.headright{align-items:stretch;width:100%}}
+.btn.big{padding:12px 20px;font-size:16px}
+#summary{margin-bottom:24px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.tile.busy{border-left:4px solid var(--busy)}.tile.quiet{border-left:4px solid var(--quiet)}
+.tile .k{font-size:13px;color:var(--muted);font-weight:600}
+.tile .v{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:700;font-size:30px;line-height:1.15;margin:2px 0}
+.tile .v.sm{font-size:19px;margin:6px 0 4px}
+.tile .s{font-size:13px;color:var(--muted)}
+.startlist{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:10px}
+.startlist li{display:flex;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.startlist .check{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:14px}
+.startlist li.done{opacity:.6}.startlist li.done .check{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.step{font-weight:600;margin:0 0 8px}
+.slotcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:22px}
+.slotcard{appearance:none;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:1px;position:relative}
+.slotcard .when{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.slotcard strong{font-size:15px}
+.slotcard[aria-checked="true"]{border:2px solid var(--accent);padding:9px 11px;background:var(--surface)}
+.slotcard .done{font-size:12px;color:var(--muted)}
+.stepper{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.stepbtn{appearance:none;width:52px;height:52px;border-radius:50%;border:1px solid var(--line);background:var(--bg);font-size:26px;line-height:1;cursor:pointer;font-weight:500}
+.stepbtn:active{background:var(--line)}
+.stepper input{width:110px;text-align:center;font-family:"Bricolage Grotesque",system-ui,sans-serif;font-size:34px;font-weight:700;padding:4px}
+details.more{border-top:1px solid var(--line);padding-top:12px;margin-bottom:16px}
+details.more summary{cursor:pointer;font-weight:600;color:var(--muted)}
+details.more[open] summary{margin-bottom:12px}
+.btn.full{width:100%;padding:13px;font-size:16px}
+.donebox h3{font-size:20px;margin-bottom:8px}
+.donebox p{margin-bottom:10px}
 .two{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;align-items:start}
 @media (max-width:820px){.two{grid-template-columns:1fr}}
 .list{list-style:none;margin:0;padding:0}
@@ -134,7 +166,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
       <h1 id="courseTitle">TA hours</h1>
       <p class="sub" id="courseSub">Track how full each office-hours slot is, and move hours to where students actually show up.</p>
     </div>
-    <p class="mode" id="modeNote">Loading…</p>
+    <div class="headright"><button class="btn big" id="quickLog">+ Log a session</button><p class="mode" id="modeNote">Loading…</p></div>
   </header>
 
   <nav role="tablist">
@@ -144,6 +176,10 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
     <button role="tab" data-tab="deadlines" aria-selected="false">Deadlines</button>
   </nav>
 
+  <div class="publish" id="demoBar" hidden>
+    <p><strong>Demo mode.</strong> Everything here is made-up sample data. Nothing you do is saved.</p>
+    <a class="btn secondary" id="leaveDemo" href="./">Leave demo</a>
+  </div>
   <div class="publish" id="publishBar" hidden>
     <p><strong>Unpublished schedule changes.</strong> Edits to slots, deadlines, and settings stay in this browser until you publish them.</p>
     <div class="row"><button class="btn" id="pubBtn">Publish to GitHub</button><button class="link" id="pubDiscard">Discard changes</button></div>
@@ -156,6 +192,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 
   <!-- OVERVIEW -->
   <section id="tab-overview">
+    <div id="summary"></div>
     <div class="panel">
       <div class="row" style="margin-bottom:14px">
         <div>
@@ -283,6 +320,56 @@ const r1=n=>Math.round(n*10)/10;
 let toastT;
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),2200);}
 
+
+/* ---------- demo data: add ?demo to the address to see it ---------- */
+const DEMO=new URLSearchParams(location.search).has("demo");
+function makeDemo(){
+  let seed=20260902;
+  const rand=()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+  const today=new Date();today.setHours(0,0,0,0);
+  const thisMon=new Date(today.getFullYear(),today.getMonth(),today.getDate()-wd(today));
+  const start=new Date(thisMon.getFullYear(),thisMon.getMonth(),thisMon.getDate()-7*8+2); // a Wednesday, 8 weeks back
+  const addD=(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);
+  const slots=[
+    {id:"demo-mon-aft",day:0,start:"16:00",end:"18:00",location:"CIT 219",tas:2,names:"Priya, Marcus",base:7},
+    {id:"demo-mon-eve",day:0,start:"20:00",end:"22:00",location:"CIT 201",tas:3,names:"Johnny, Ana, Leo",base:12},
+    {id:"demo-tue-am",day:1,start:"10:00",end:"12:00",location:"CIT 219",tas:1,names:"Sam",base:0.9},
+    {id:"demo-wed-eve",day:2,start:"18:00",end:"20:00",location:"CIT 219",tas:2,names:"Priya, Leo",base:9},
+    {id:"demo-thu-mid",day:3,start:"12:00",end:"14:00",location:"CIT 201",tas:2,names:"Marcus, Sam",base:6},
+    {id:"demo-thu-eve",day:3,start:"20:00",end:"22:00",location:"CIT 219",tas:2,names:"Johnny, Ana",base:15},
+    {id:"demo-fri-aft",day:4,start:"14:00",end:"16:00",location:"CIT 201",tas:2,names:"Leo, Sam",base:3},
+    {id:"demo-sun-eve",day:6,start:"18:00",end:"21:00",location:"CIT 219",tas:3,names:"Priya, Marcus, Ana",base:14}
+  ];
+  const deadlines=[];
+  for(let w=1,p=1;w<=12;w+=2,p++){const fri=addD(start,2+7*w);deadlines.push({id:"demo-due-"+p,name:"Project "+p,date:isoD(fri)});}
+  deadlines.push({id:"demo-due-mid",name:"Midterm",date:isoD(addD(start,6+7*6))});
+  const dueTimes=deadlines.map(d=>parseD(d.date).getTime());
+  const notes=["Lots of debugging questions on the project","Mostly conceptual questions about the lecture","Queue backed up in the last hour","Several students with setup and install problems","Quiet until the last 30 minutes","Many questions about the autograder","Good mix of homework and project questions"];
+  const logs=[];const now=new Date();let n=0;
+  for(let d=new Date(start);d<=today;d=addD(d,1)){
+    const week=Math.floor((d-start)/(7*86400000));
+    const ramp=week===0?0.45:week===1?0.75:1+week*0.03;
+    const next=dueTimes.filter(t=>t>=d.getTime()).map(t=>Math.round((t-d.getTime())/86400000));
+    const days=next.length?Math.min(...next):99;
+    const dl=days===0?1.2:days===1?1.9:days===2?1.5:days===3?1.15:0.8;
+    slots.filter(s=>s.day===wd(d)).forEach(s=>{
+      if(isoD(d)===isoD(today)&&now.getHours()*60+now.getMinutes()<toMin(s.end))return;
+      if(rand()<0.07)return; // someone forgot to log it
+      const cancelled=rand()<0.03;
+      const students=cancelled?0:Math.max(0,Math.round(s.base*ramp*dl*(0.75+rand()*0.5)));
+      const perTa=students/s.tas;
+      logs.push({id:"demo-log-"+(++n),sessionId:s.id,date:isoD(d),day:s.day,start:s.start,end:s.end,hours:sessHours(s),
+        students,tas:s.tas,
+        queue:cancelled||rand()<0.3?null:Math.max(0,Math.round(students*(0.25+rand()*0.3))),
+        wait:cancelled||rand()<0.3?null:Math.round(Math.max(0,perTa*3.5+(rand()*8-4))),
+        note:!cancelled&&rand()<0.2?notes[Math.floor(rand()*notes.length)]:"",
+        cancelled,createdAt:new Date(d.getTime()+toMin(s.end)*60000).toISOString()});
+    });
+  }
+  return {sched:{course:"CSCI 0150 (demo)",semesterStart:isoD(start),quiet:1,busy:4,
+    sessions:slots.map(s=>{const o={...s};delete o.base;o.active=true;return o;}),deadlines},logs};
+}
+
 /* ---------- storage: files in this GitHub repo ---------- */
 // Leave empty and the page works out the repo from its GitHub Pages address
 // (username.github.io/repo-name). Only set it if you use a custom domain: "username/repo-name".
@@ -324,6 +411,12 @@ const Store={cbs:{},data:{sessions:{},deadlines:{},config:{},logs:{}},loadedStr:
   },
   async reload(){
     const bust="?t="+Date.now();let sched=null,logs=null;
+    if(DEMO){
+      if(this.loadedStr)return;
+      const g=makeDemo();this.applySchedule(g.sched);this.loadedStr=this.serialize();
+      const o={};g.logs.forEach(l=>{const v={...l};delete v.id;o[l.id]=v;});this.data.logs=o;
+      this.pending={};this.dirty=false;this.emitAll();renderPublishBar();return;
+    }
     try{const r=await fetch("data/schedule.json"+bust,{cache:"no-store"});if(r.ok)sched=await r.json();}catch(e){}
     try{const r=await fetch("data/logs.json"+bust,{cache:"no-store"});if(r.ok)logs=await r.json();}catch(e){}
     if(sched){
@@ -343,6 +436,7 @@ const Store={cbs:{},data:{sessions:{},deadlines:{},config:{},logs:{}},loadedStr:
     this.emitAll();renderPublishBar();
   },
   async put(coll,id,data){
+    if(DEMO)throw {code:"demo"};
     if(coll==="logs"){
       if(!REPO)throw {code:"no_repo"};
       const body=JSON.stringify(data,null,2)+"\n";
@@ -352,7 +446,7 @@ const Store={cbs:{},data:{sessions:{},deadlines:{},config:{},logs:{}},loadedStr:
     }
     this.data[coll][id]=data;this.afterEdit(coll);
   },
-  async remove(coll,id){if(coll==="logs")return;delete this.data[coll][id];this.afterEdit(coll);},
+  async remove(coll,id){if(DEMO)throw {code:"demo"};if(coll==="logs")return;delete this.data[coll][id];this.afterEdit(coll);},
   afterEdit(coll){
     const cur=this.serialize();this.dirty=cur!==this.loadedStr;
     lsSet(DRAFT_KEY,this.dirty?{base:this.loadedStr,draft:cur}:null);
@@ -361,7 +455,8 @@ const Store={cbs:{},data:{sessions:{},deadlines:{},config:{},logs:{}},loadedStr:
   forgetPending(id){delete this.pending[id];lsSet(PENDING_KEY,Object.keys(this.pending).length?this.pending:null);this.emit("logs");}
 };
 function writeErr(e){
-  if(e&&e.code==="no_repo")toast("Saving only works on the GitHub Pages site.");
+  if(e&&e.code==="demo")toast("This is demo data, so nothing gets saved. Leave demo mode to make real changes.");
+  else if(e&&e.code==="no_repo")toast("Saving only works on the GitHub Pages site.");
   else toast("Something went wrong. Try again.");
 }
 function renderPublishBar(){
@@ -426,7 +521,8 @@ function renderCalendar(){
       const w=100/nl, left=s._lane*w;
       const main=st.n?r1(st.avgStudents)+" students":"Not logged";
       const sub=st.n?r1(st.load)+" per TA-hr · "+st.n+" logged":"Select to log";
-      html+='<button class="block '+b+(s.active===false?' inactive':'')+'" data-sid="'+esc(s.id)+'" style="top:'+(top+1)+'px;height:'+ht+'px;left:calc('+left+'% + 3px);width:calc('+w+'% - 6px)" aria-label="'+esc(sessLabel(s)+", "+BUCKET_LABEL[b])+'">'
+      const tip=sessLabel(s)+(s.location?" · "+s.location:"")+" · "+(s.tas||1)+" TA"+(s.tas==1?"":"s")+(st.n?"\n"+r1(st.avgStudents)+" students on average ("+r1(st.load)+" per TA-hour) over "+st.n+" session"+(st.n==1?"":"s")+(st.avgWait!=null?"\nAverage longest wait: "+Math.round(st.avgWait)+" min":""):"\nNo logs yet");
+      html+='<button title="'+esc(tip)+'" class="block '+b+(s.active===false?' inactive':'')+'" data-sid="'+esc(s.id)+'" style="top:'+(top+1)+'px;height:'+ht+'px;left:calc('+left+'% + 3px);width:calc('+w+'% - 6px)" aria-label="'+esc(sessLabel(s)+", "+BUCKET_LABEL[b])+'">'
         +'<strong>'+esc(main)+'</strong><span class="t">'+esc(fmtT(s.start)+"–"+fmtT(s.end))+(s.location?' · '+esc(s.location):'')+'</span>'
         +(ht>70?'<br><span class="t">'+esc(sub)+'</span>':'')+'</button>';
     });
@@ -541,37 +637,57 @@ function renderTable(){
 }
 
 /* ---------- log form ---------- */
-function defaultDateFor(s){
-  const t=new Date();t.setHours(0,0,0,0);
-  if(!s)return isoD(t);
-  const back=(wd(t)-Number(s.day)+7)%7;
-  return isoD(new Date(t.getFullYear(),t.getMonth(),t.getDate()-back));
+let logDirty=false, logDone=false, logSel=null;
+function lastOccurrence(s){
+  const now=new Date(),today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  let back=(wd(today)-Number(s.day)+7)%7;
+  if(back===0&&now.getHours()*60+now.getMinutes()<toMin(s.start))back=7;
+  return new Date(today.getFullYear(),today.getMonth(),today.getDate()-back);
 }
+function relDay(d){const t=new Date();t.setHours(0,0,0,0);const n=Math.round((t-d)/86400000);return n===0?"Today":n===1?"Yesterday":"Last "+DAYS_LONG[wd(d)];}
+function isLogged(sid,date){return S.logs.some(l=>l.sessionId===sid&&l.date===date)||Object.values(Store.pending||{}).some(p=>p.data&&p.data.sessionId===sid&&p.data.date===date);}
 function renderLogForm(){
   const wrap=$("logFormWrap");
-  const active=S.sessions.filter(s=>s.active!==false).sort((a,b)=>a.day-b.day||toMin(a.start)-toMin(b.start));
-  if(!active.length){wrap.innerHTML='<div class="empty">Add your office-hours slots on the Schedule tab first, then log each one after it ends.</div>';return;}
-  const cur=$("lSess")?$("lSess").value:null;
-  const sel=preselect||cur||active[0].id;
-  const s=active.find(x=>x.id===sel)||active[0];
-  wrap.innerHTML='<div class="grid g2">'
-    +'<div style="grid-column:1/-1"><label for="lSess">Slot</label><select id="lSess">'+active.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===s.id?" selected":"")+'>'+esc(sessLabel(x)+(x.location?" · "+x.location:""))+'</option>').join("")+'</select></div>'
-    +'<div><label for="lDate">Date</label><input id="lDate" type="date" value="'+defaultDateFor(s)+'"><p class="warn" id="lDateWarn" hidden></p></div>'
-    +'<div><label for="lStudents">Students helped</label><input id="lStudents" type="number" min="0" inputmode="numeric" placeholder="0"></div>'
+  const active=S.sessions.filter(s=>s.active!==false);
+  if(!active.length){wrap.innerHTML='<div class="empty">Add your office-hours slots first, then log each one after it ends.<div style="margin-top:12px"><button class="btn" id="lGoSched">Add slots</button></div></div>';$("lGoSched").addEventListener("click",()=>switchTab("schedule"));return;}
+  if(logDone){
+    wrap.innerHTML='<div class="donebox"><h3>Almost done</h3><p>A GitHub tab just opened with your log filled in. Click the green <strong>Commit changes</strong> button there to save it.</p><p class="hint">It shows up on the overview about a minute after you commit. No GitHub tab? Use <strong>Open again</strong> next to it under Recent logs.</p><div class="row" style="margin-top:14px"><button class="btn" id="lAnother">Log another session</button><button class="btn secondary" id="lBack">Back to overview</button></div></div>';
+    $("lAnother").addEventListener("click",()=>{logDone=false;logSel=null;renderLogForm();});
+    $("lBack").addEventListener("click",()=>{logDone=false;logSel=null;switchTab("overview");});
+    return;
+  }
+  const occ=active.map(s=>({s,d:lastOccurrence(s)})).sort((a,b)=>b.d-a.d||toMin(b.s.start)-toMin(a.s.start));
+  if(preselect){const o=occ.find(x=>x.s.id===preselect);if(o)logSel={sid:o.s.id,date:isoD(o.d)};preselect=null;}
+  if(!logSel||!active.some(s=>s.id===logSel.sid)){const o=occ.find(x=>!isLogged(x.s.id,isoD(x.d)))||occ[0];logSel={sid:o.s.id,date:isoD(o.d)};}
+  const s=active.find(x=>x.id===logSel.sid);
+  const cards=occ.slice(0,6).map(o=>{const date=isoD(o.d),sel=o.s.id===logSel.sid&&date===logSel.date;
+    return '<button type="button" class="slotcard" role="radio" aria-checked="'+sel+'" data-sid="'+esc(o.s.id)+'" data-date="'+date+'"><span class="when">'+esc(relDay(o.d))+'</span><strong>'+esc(fmtT(o.s.start)+"–"+fmtT(o.s.end))+'</strong><span class="meta">'+esc(o.s.location||((o.s.tas||1)+" TAs"))+'</span>'+(isLogged(o.s.id,date)?'<span class="done">✓ Already logged</span>':'')+'</button>';}).join("");
+  wrap.innerHTML='<p class="step">Which session?</p><div class="slotcards" role="radiogroup" aria-label="Session">'+cards+'</div>'
+    +'<p class="step"><label for="lStudents" style="font-size:15px;margin:0">How many students did you help?</label></p>'
+    +'<div class="stepper"><button type="button" class="stepbtn" data-step="-1" aria-label="One fewer">−</button><input id="lStudents" type="number" min="0" inputmode="numeric" value="0"><button type="button" class="stepbtn" data-step="1" aria-label="One more">+</button></div>'
+    +'<details class="more"><summary>More details (optional)</summary><div class="grid g2">'
+    +'<div><label for="lWait">Longest wait (minutes)</label><input id="lWait" type="number" min="0" inputmode="numeric"></div>'
+    +'<div><label for="lQueue">Longest queue (students)</label><input id="lQueue" type="number" min="0" inputmode="numeric"></div>'
     +'<div><label for="lTas">TAs who worked</label><input id="lTas" type="number" min="1" value="'+esc(s.tas||1)+'"></div>'
-    +'<div><label for="lQueue">Longest queue (optional)</label><input id="lQueue" type="number" min="0" inputmode="numeric"></div>'
-    +'<div><label for="lWait">Longest wait, minutes (optional)</label><input id="lWait" type="number" min="0" inputmode="numeric"></div>'
-    +'<div style="grid-column:1/-1"><label for="lNote">Note (optional)</label><textarea id="lNote" placeholder="Most questions were about the recursion lab"></textarea></div>'
-    +'</div>'
-    +'<label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:500"><input id="lCancelled" type="checkbox" style="width:auto">This session was cancelled</label>'
-    +'<p class="warn" id="lErr" hidden></p>'
-    +'<div class="row" style="margin-top:16px"><button class="btn" id="lSave">Save to GitHub</button></div>'
-    +'<p class="hint" style="margin-top:8px">Opens GitHub with this log filled in. Click <strong>Commit changes</strong> there, and it shows up here about a minute later.</p>';
-  preselect=null;
+    +'<div><label for="lSess">A different slot</label><select id="lSess">'+active.slice().sort((a,b)=>a.day-b.day||toMin(a.start)-toMin(b.start)).map(x=>'<option value="'+esc(x.id)+'"'+(x.id===s.id?" selected":"")+'>'+esc(sessLabel(x))+'</option>').join("")+'</select></div>'
+    +'<div><label for="lDate">Date</label><input id="lDate" type="date" value="'+logSel.date+'"></div>'
+    +'<div style="grid-column:1/-1"><label for="lNote">Note</label><textarea id="lNote" placeholder="Most questions were about the recursion lab"></textarea></div>'
+    +'</div><label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:500"><input id="lCancelled" type="checkbox" style="width:auto">This session was cancelled</label></details>'
+    +'<p class="warn" id="lDateWarn" hidden></p><p class="warn" id="lErr" hidden></p>'
+    +'<button class="btn full" id="lSave">Save log</button>'
+    +'<p class="hint" style="margin-top:8px">This opens GitHub with the log filled in. Click the green <strong>Commit changes</strong> button there to finish.</p>';
   const checkDay=()=>{const ss=S.sessions.find(x=>x.id===$("lSess").value);const v=$("lDate").value;const w=$("lDateWarn");
-    if(ss&&v&&wd(parseD(v))!==Number(ss.day)){w.textContent="That date is a "+DAYS_LONG[wd(parseD(v))]+", but this slot runs on "+DAYS_LONG[ss.day]+"s.";w.hidden=false;}else w.hidden=true;};
-  $("lSess").addEventListener("change",()=>{const ss=S.sessions.find(x=>x.id===$("lSess").value);$("lDate").value=defaultDateFor(ss);$("lTas").value=ss.tas||1;checkDay();});
-  $("lDate").addEventListener("change",checkDay);
+    if(ss&&v&&wd(parseD(v))!==Number(ss.day)){w.textContent="Heads up: that date is a "+DAYS_LONG[wd(parseD(v))]+", but this slot runs on "+DAYS_LONG[ss.day]+"s.";w.hidden=false;}else w.hidden=true;};
+  const choose=(sid,date)=>{logSel={sid,date};const ss=S.sessions.find(x=>x.id===sid);
+    $("lSess").value=sid;$("lDate").value=date;$("lTas").value=ss.tas||1;
+    wrap.querySelectorAll(".slotcard").forEach(c=>c.setAttribute("aria-checked",String(c.dataset.sid===sid&&c.dataset.date===date)));checkDay();};
+  wrap.querySelectorAll(".slotcard").forEach(c=>c.addEventListener("click",()=>{logDirty=true;choose(c.dataset.sid,c.dataset.date);}));
+  wrap.querySelectorAll(".stepbtn").forEach(b=>b.addEventListener("click",()=>{logDirty=true;const i=$("lStudents");i.value=Math.max(0,(Number(i.value)||0)+Number(b.dataset.step));}));
+  wrap.oninput=()=>{logDirty=true;};
+  $("lStudents").addEventListener("focus",e=>e.target.select());
+  $("lStudents").addEventListener("keydown",e=>{if(e.key==="Enter")saveLog();});
+  $("lSess").addEventListener("change",()=>{const ss=S.sessions.find(x=>x.id===$("lSess").value);choose(ss.id,isoD(lastOccurrence(ss)));});
+  $("lDate").addEventListener("change",()=>{logSel.date=$("lDate").value;wrap.querySelectorAll(".slotcard").forEach(c=>c.setAttribute("aria-checked",String(c.dataset.sid===logSel.sid&&c.dataset.date===logSel.date)));checkDay();});
   $("lSave").addEventListener("click",saveLog);
 }
 async function saveLog(){
@@ -581,7 +697,7 @@ async function saveLog(){
   const students=$("lStudents").value;
   if(!date){err.textContent="Pick the date this session happened.";err.hidden=false;return;}
   if(!cancelled&&students===""){err.textContent="Enter how many students came, or mark the session cancelled.";err.hidden=false;return;}
-  const dup=S.logs.find(l=>l.sessionId===s.id&&l.date===date);
+  const dup=isLogged(s.id,date);
   if(dup&&!confirm("There's already a log for this slot on "+fmtDate(date)+". Save another one anyway?"))return;
   const data={sessionId:s.id,date,day:Number(s.day),start:s.start,end:s.end,hours:sessHours(s),
     students:cancelled?0:Number(students),tas:Number($("lTas").value)||Number(s.tas)||1,
@@ -589,10 +705,8 @@ async function saveLog(){
     wait:$("lWait").value===""?null:Number($("lWait").value),
     note:$("lNote").value.trim().slice(0,500),cancelled,createdAt:new Date().toISOString()};
   $("lSave").disabled=true;
-  try{await Store.put("logs",date+"-"+uid(),data);toast("Finish on GitHub: click Commit changes");
-    $("lStudents").value="";$("lQueue").value="";$("lWait").value="";$("lNote").value="";$("lCancelled").checked=false;}
-  catch(e){writeErr(e);}
-  finally{$("lSave").disabled=false;}
+  try{await Store.put("logs",date+"-"+uid(),data);logDone=true;logDirty=false;logSel=null;renderLogForm();}
+  catch(e){writeErr(e);if($("lSave"))$("lSave").disabled=false;}
 }
 function renderRecent(){
   const ul=$("recentLogs");
@@ -670,16 +784,46 @@ function renderDeadlines(){
 }
 
 /* ---------- tabs ---------- */
+function renderSummary(){
+  const el=$("summary");
+  const hasSlots=S.sessions.length>0,hasLogs=S.logs.length>0,hasDue=S.deadlines.length>0;
+  if(!hasSlots||!hasLogs){
+    const step=(done,title,text,tab,btn)=>'<li class="'+(done?"done":"")+'"><span class="check">'+(done?"✓":"")+'</span><div class="spacer"><strong>'+title+'</strong><div class="meta">'+text+'</div></div>'+(done?'':'<button class="btn small" data-go="'+tab+'">'+btn+'</button>')+'</li>';
+    el.innerHTML='<div class="panel"><h2>Getting started</h2><ol class="startlist">'
+      +step(hasSlots,"Add your office-hours slots","Each recurring block: its day, time, and how many TAs are on.","schedule","Add slots")
+      +step(hasLogs,"Log a session after it ends","About ten seconds: pick the session and tap in how many students came.","log","Log one")
+      +step(hasDue,"Add due dates (optional)","Shows whether deadlines are what fills up hours.","deadlines","Add deadlines")
+      +'</ol></div>';
+    el.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>switchTab(b.dataset.go)));
+    return;
+  }
+  const t=new Date();t.setHours(0,0,0,0);
+  const mIso=isoD(new Date(t.getFullYear(),t.getMonth(),t.getDate()-wd(t)));
+  const done=S.logs.filter(l=>!l.cancelled);
+  const wk=done.filter(l=>l.date>=mIso);
+  const sum=a=>a.reduce((x,l)=>x+(Number(l.students)||0),0);
+  const rated=S.sessions.filter(s=>s.active!==false).map(s=>({s,st:statsFor(s.id)})).filter(x=>x.st.n);
+  const busiest=rated.slice().sort((a,b)=>b.st.load-a.st.load)[0],quietest=rated.slice().sort((a,b)=>a.st.load-b.st.load)[0];
+  const tile=(k,v,sub,cls,sm)=>'<div class="tile '+(cls||"")+'"><div class="k">'+k+'</div><div class="v'+(sm?" sm":"")+'">'+v+'</div><div class="s">'+sub+'</div></div>';
+  el.innerHTML='<div class="tiles">'
+    +tile("Students this week",sum(wk),wk.length+" session"+(wk.length==1?"":"s")+" logged since Monday")
+    +tile("Students this semester",sum(done),done.length+" session"+(done.length==1?"":"s")+" logged")
+    +(busiest?tile("Busiest slot",esc(sessLabel(busiest.s)),r1(busiest.st.avgStudents)+(r1(busiest.st.avgStudents)===1?" student":" students")+" on average","busy",true):"")
+    +(quietest&&rated.length>1?tile("Quietest slot",esc(sessLabel(quietest.s)),r1(quietest.st.avgStudents)+(r1(quietest.st.avgStudents)===1?" student":" students")+" on average","quiet",true):"")
+    +'</div>';
+}
 function switchTab(name){
+  if(name==="log"&&$("tab-log").hidden){logDone=false;logDirty=false;}
   document.querySelectorAll("nav button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===name)));
   ["overview","log","schedule","deadlines"].forEach(t=>$("tab-"+t).hidden=t!==name);
   if(name==="log")renderLogForm();
 }
 document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>switchTab(b.dataset.tab)));
+$("quickLog").addEventListener("click",()=>{logSel=null;switchTab("log");});
 
 function renderAll(){
-  renderCalendar();renderFindings();renderWeekly();renderTable();renderRecent();renderSessionList();renderDeadlines();
-  if(!$("tab-log").hidden&&!document.activeElement.closest("#logFormWrap"))renderLogForm();
+  renderSummary();renderCalendar();renderFindings();renderWeekly();renderTable();renderRecent();renderSessionList();renderDeadlines();
+  if(!$("tab-log").hidden&&!logDirty)renderLogForm();
 }
 
 /* ---------- publish ---------- */
@@ -694,7 +838,8 @@ $("pubDiscard").addEventListener("click",()=>{if(!confirm("Discard your unpublis
 
 /* ---------- boot ---------- */
 (async function(){
-  $("modeNote").textContent=REPO?"Data lives in github.com/"+REPO:"Open this from the GitHub Pages site to save";
+  if(DEMO){$("demoBar").hidden=false;$("leaveDemo").href=location.pathname;}
+  $("modeNote").textContent=DEMO?"Showing demo data":REPO?"Data lives in github.com/"+REPO:"Open this from the GitHub Pages site to save";
   Store.subscribe("sessions",d=>{S.sessions=d.map(s=>({...s,day:Number(s.day)}));renderAll();});
   Store.subscribe("logs",d=>{S.logs=d;renderAll();});
   Store.subscribe("deadlines",d=>{S.deadlines=d;renderAll();});
