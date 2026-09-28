@@ -1,0 +1,58 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Merge logs into one file
+        run: |
+          node <<'SCRIPT'
+          const fs = require("fs"), path = require("path");
+          fs.rmSync("_site", { recursive: true, force: true });
+          fs.mkdirSync("_site/data", { recursive: true });
+          fs.copyFileSync("index.html", "_site/index.html");
+          const sched = fs.readFileSync("data/schedule.json", "utf8");
+          JSON.parse(sched); // stops the deploy if schedule.json is broken
+          fs.writeFileSync("_site/data/schedule.json", sched);
+          const dir = "data/logs", logs = [];
+          if (fs.existsSync(dir)) {
+            for (const f of fs.readdirSync(dir).sort()) {
+              if (!f.endsWith(".json")) continue;
+              try {
+                const o = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+                o.id = f.slice(0, -5);
+                logs.push(o);
+              } catch (e) {
+                console.log("::warning file=" + dir + "/" + f + "::Skipped, not valid JSON: " + e.message);
+              }
+            }
+          }
+          fs.writeFileSync("_site/data/logs.json", JSON.stringify(logs));
+          console.log("Merged " + logs.length + " logs");
+          SCRIPT
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
